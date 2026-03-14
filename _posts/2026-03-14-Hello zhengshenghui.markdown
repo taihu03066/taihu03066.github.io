@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "我的2026-03 gethub Pages!"
+title:      "我的2026-03 github Pages!"
 date:       2026-03-14 21:41:00
 author:     "Zhengshenghui"
 header-img: "img/post-bg-miui6.jpg"
@@ -13,7 +13,7 @@ tags:
 
 2026-03-14 21:25
 
-首篇基于gethub的个人博客
+首篇基于github的个人博客
 
 将自己的生活和工作经验进行一个分享，采用这种方式进行一个存储，
 
