@@ -1694,13 +1694,14 @@ img::-moz-selection {
 .no-scroll {
   overflow-y: hidden;
 }
-/* 抖音自定义图标 - 与其他社交图标风格一致 */
-.fa-douyin {
+/* 抖音图标 */
+.icon-douyin {
   display: inline-block;
   width: 1em;
   height: 1em;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2Z'/%3E%3Cpath d='M12 8C13.1046 8 14 8.89543 14 10C14 11.1046 13.1046 12 12 12C10.8954 12 10 11.1046 10 10C10 8.89543 10.8954 8 12 8Z' fill='black'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%23fff' stroke='%23ccc' stroke-width='1'/%3E%3Cpath d='M12 7v5M12 12h2' stroke='%23000' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: 80%;
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 65%;
+  vertical-align: middle;
 }
