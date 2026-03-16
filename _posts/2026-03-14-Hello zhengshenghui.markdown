@@ -23,4 +23,5 @@ tags:
 
   <br>在本次的内容中分享了一条上传的PDF的文件夹，文件夹里面上传了一篇关于基恩士的IV视觉系类的一篇样本介绍的
   <br>的PDF文件，链接如下：
-  [快速开始}PDF/AS_149040_IV4_C_643666_KC_CN_2114_1.pdf
+  [IV样本PDF](../PDF/AS_149040_IV4_C_643666_KC_CN_2114_1.pdf)
+<br> [我的知乎](https://www.zhihu.com/people/taihu03066)
