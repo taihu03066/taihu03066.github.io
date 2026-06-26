@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>智能记录表（支持删除列）</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f4f7fc; }
+
+        .toolbar-wrapper {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: #f4f7fc;
+            padding: 15px 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 20px;
+        }
+        .toolbar-wrapper .title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-right: 20px;
+        }
+        .toolbar-wrapper button {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            cursor: pointer;
+            color: white;
+            transition: background 0.2s;
+        }
+        .btn-add-row { background: #3498db; }
+        .btn-add-row:hover { background: #2980b9; }
+        .btn-add-col { background: #9b59b6; }
+        .btn-add-col:hover { background: #8e44ad; }
+        .btn-del-col { background: #e67e22; }
+        .btn-del-col:hover { background: #d35400; }
+        .btn-clear { background: #e74c3c; }
+        .btn-clear:hover { background: #c0392b; }
+        .btn-save { background: #2ecc71; }
+        .btn-save:hover { background: #27ae60; }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            margin-left: auto;
+            gap: 6px;
+        }
+        .search-box label {
+            font-size: 14px;
+            color: #555;
+        }
+        .search-box input {
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 200px;
+        }
+        .search-box input:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        .search-box .clear-search {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .search-box .clear-search:hover {
+            background: #7f8c8d;
+        }
+
+        .save-status {
+            font-size: 14px;
+            color: #27ae60;
+            margin-left: 10px;
+            white-space: nowrap;
+        }
+
+        .table-container {
+            padding: 20px 30px 40px;
+            overflow-x: auto;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            table-layout: fixed;
+        }
+        th {
+            background: #2c3e50;
+            color: white;
+            padding: 8px 6px;
+            text-align: left;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            position: relative;
+            user-select: none;
+        }
+        th .resizer {
+            position: absolute;
+            right: -4px;
+            top: 0;
+            width: 8px;
+            height: 100%;
+            cursor: col-resize;
+            z-index: 20;
+            background: transparent;
+        }
+        th .resizer:hover {
+            background: #3498db;
+            opacity: 0.5;
+        }
+
+        td {
+            padding: 4px 6px;
+            border-bottom: 1px solid #ddd;
+            vertical-align: middle;  /* 垂直居中 */
+            overflow: hidden;
+        }
+
+        .editable-cell {
+            width: 100%;
+            min-height: 32px;
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.5;
+            background: white;
+            outline: none;
+            overflow: hidden;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            cursor: text;
+        }
+        .editable-cell:focus {
+            border-color: #3498db;
+        }
+        .editable-cell:empty::before {
+            content: attr(data-placeholder);
+            color: #aaa;
+            pointer-events: none;
+        }
+
+        .readonly-input {
+            width: 100%;
+            border: none;
+            padding: 6px 8px;
+            font-family: inherit;
+            font-size: 14px;
+            background: #f0f7ff;
+            color: #333;
+            font-weight: 500;
+            pointer-events: none;
+            min-height: 32px;
+            line-height: 1.5;
+            text-align: center;  /* 时间、序列居中 */
+        }
+        .seq-input {
+            background: #eef2f5;
+            font-weight: bold;
+        }
+
+        .del-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .del-btn:hover {
+            background: #c0392b;
+        }
+        .action-col {
+            width: 70px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="toolbar-wrapper">
+    <span class="title">📋 智能记录表</span>
+    <button class="btn-add-row" onclick="addRow()">➕ 新增一行</button>
+    <button class="btn-add-col" onclick="addColumn()">➕ 增加一列</button>
+    <button class="btn-del-col" onclick="deleteColumn()">➖ 删除列</button>
+    <button class="btn-clear" onclick="clearAll()">🗑️ 清空所有</button>
+    <button class="btn-save" id="saveBtn" onclick="saveData()">💾 保存</button>
+    <span class="save-status" id="saveStatus">✅ 数据已自动保存</span>
+
+    <div class="search-box">
+        <label for="searchInput">🔍 搜索</label>
+        <input type="text" id="searchInput" placeholder="输入关键词筛选..." oninput="filterRows()">
+        <button class="clear-search" onclick="clearSearch()">✕</button>
+    </div>
+</div>
+
+<div class="table-container">
+    <table id="dataTable">
+        <thead id="tableHead">
+            <tr>
+                <th style="width:8%;" data-col="记录序列">记录序列<span class="resizer"></span></th>
+                <th style="width:18%;" data-col="首次记录日期时间">首次记录日期时间<span class="resizer"></span></th>
+                <th style="width:32%;" data-col="记录内容（在此输入）">记录内容（在此输入）<span class="resizer"></span></th>
+                <th style="width:18%;" data-col="最后一次修改日期时间">最后一次修改日期时间<span class="resizer"></span></th>
+                <th style="width:14%;" data-col="记录人（手动填）">记录人（手动填）<span class="resizer"></span></th>
+                <th class="action-col" style="width:70px;">操作</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // ============ 存储相关 ============
+    const STORAGE_KEY = 'smartRecordData';
+    let rowIdCounter = 0;
+    let currentFilter = '';
+
+    const defaultColumns = ['记录序列', '首次记录日期时间', '记录内容（在此输入）', '最后一次修改日期时间', '记录人（手动填）', '操作'];
+
+    // ============ 列宽拖拽 ============
+    function initResize() {
+        const table = document.getElementById('dataTable');
+        const headers = table.querySelectorAll('th');
+        let currentResizer = null;
+        let startX = 0;
+        let startWidth = 0;
+        let resizing = false;
+
+        headers.forEach(th => {
+            const resizer = th.querySelector('.resizer');
+            if (!resizer) return;
+            resizer.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                resizing = true;
+                currentResizer = this;
+                startX = e.clientX;
+                startWidth = th.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!resizing || !currentResizer) return;
+            const th = currentResizer.parentElement;
+            const diff = e.clientX - startX;
+            let newWidth = startWidth + diff;
+            if (newWidth < 30) newWidth = 30;
+            th.style.width = newWidth + 'px';
+            const colIndex = Array.from(th.parentElement.children).indexOf(th);
+            const rows = document.getElementById('tableBody').rows;
+            for (let row of rows) {
+                const cell = row.children[colIndex];
+                if (cell) {
+                    cell.style.width = newWidth + 'px';
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (resizing) {
+                resizing = false;
+                currentResizer = null;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+    }
+
+    // ============ 初始化 ============
+    function init() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                if (data && data.columns && data.rows) {
+                    renderTable(data.columns, data.rows);
+                    rowIdCounter = data.rows.length;
+                    updateStatus('已恢复上次保存的数据');
+                    initResize();
+                    return;
+                }
+            } catch(e) {}
+        }
+        const defaultRows = [{
+            '记录序列': '1',
+            '首次记录日期时间': '2026-06-25 10:00:00',
+            '记录内容（在此输入）': '输入内容自动触发...',
+            '最后一次修改日期时间': '2026-06-25 10:00:00',
+            '记录人（手动填）': '',
+            '操作': ''
+        }];
+        renderTable(defaultColumns, defaultRows);
+        rowIdCounter = 1;
+        saveData();
+        initResize();
+    }
+
+    // ============ 渲染表格 ============
+    function renderTable(columns, rows) {
+        const thead = document.getElementById('tableHead');
+        const tbody = document.getElementById('tableBody');
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        const headerRow = document.createElement('tr');
+        columns.forEach(col => {
+            const th = document.createElement('th');
+            if (col === '操作') {
+                th.className = 'action-col';
+                th.style.width = '70px';
+                th.textContent = col;
+            } else {
+                th.textContent = col;
+                const resizer = document.createElement('span');
+                resizer.className = 'resizer';
+                th.appendChild(resizer);
+                th.style.width = 'auto';
+            }
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+
+        rows.forEach((rowData, index) => {
+            const tr = document.createElement('tr');
+            const id = rowIdCounter++;
+            tr.dataset.rowId = id;
+
+            columns.forEach((col) => {
+                const td = document.createElement('td');
+                if (col === '操作') {
+                    const btn = document.createElement('button');
+                    btn.className = 'del-btn';
+                    btn.textContent = '删除';
+                    btn.onclick = function() { deleteRow(this); };
+                    td.appendChild(btn);
+                } else if (col === '记录序列') {
+                    const div = document.createElement('div');
+                    div.className = 'readonly-input seq-input';
+                    div.id = `seq_${id}`;
+                    div.textContent = rowData[col] || (index + 1);
+                    td.appendChild(div);
+                } else if (col === '首次记录日期时间' || col === '最后一次修改日期时间') {
+                    const div = document.createElement('div');
+                    div.className = 'readonly-input';
+                    div.id = col === '首次记录日期时间' ? `first_${id}` : `last_${id}`;
+                    div.textContent = rowData[col] || '';
+                    td.appendChild(div);
+                } else {
+                    const div = document.createElement('div');
+                    div.className = 'editable-cell';
+                    div.contentEditable = true;
+                    const colKey = col === '记录内容（在此输入）' ? 'content' :
+                                  col === '记录人（手动填）' ? 'person' :
+                                  'col_' + col;
+                    div.id = `${colKey}_${id}`;
+                    div.setAttribute('data-placeholder', col === '记录内容（在此输入）' ? '输入内容自动触发...' :
+                                                   col === '记录人（手动填）' ? '填写姓名' :
+                                                   `输入${col}...`);
+                    div.innerText = rowData[col] || '';
+                    if (col === '记录内容（在此输入）') {
+                        div.addEventListener('input', function() { onContentChange(id); });
+                    } else if (col === '记录人（手动填）') {
+                        div.addEventListener('input', function() { onPersonChange(); });
+                    } else {
+                        div.addEventListener('input', function() { autoSave(); });
+                    }
+                    td.appendChild(div);
+                }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        applyFilter(currentFilter);
+        initResize();
+    }
+
+    // ============ 获取当前列名 ============
+    function getCurrentColumns() {
+        const thead = document.getElementById('tableHead');
+        const ths = thead.querySelectorAll('th');
+        const cols = [];
+        ths.forEach(th => {
+            cols.push(th.textContent.trim());
+        });
+        return cols;
+    }
+
+    // ============ 收集数据 ============
+    function collectData() {
+        const columns = getCurrentColumns();
+        const tbody = document.getElementById('tableBody');
+        const rows = tbody.rows;
+        const data = [];
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const rowData = {};
+            const cells = row.querySelectorAll('td');
+            columns.forEach((col, index) => {
+                if (col === '操作') return;
+                const cell = cells[index];
+                if (cell) {
+                    const el = cell.querySelector('.editable-cell') || cell.querySelector('.readonly-input');
+                    if (el) {
+                        rowData[col] = el.innerText || '';
+                    } else {
+                        rowData[col] = '';
+                    }
+                }
+            });
+            data.push(rowData);
+        }
+        return { columns, rows: data };
+    }
+
+    // ============ 新增一行 ============
+    function addRow() {
+        const columns = getCurrentColumns();
+        const tbody = document.getElementById('tableBody');
+        const id = rowIdCounter++;
+        const tr = document.createElement('tr');
+        tr.dataset.rowId = id;
+
+        columns.forEach((col) => {
+            const td = document.createElement('td');
+            if (col === '操作') {
+                const btn = document.createElement('button');
+                btn.className = 'del-btn';
+                btn.textContent = '删除';
+                btn.onclick = function() { deleteRow(this); };
+                td.appendChild(btn);
+            } else if (col === '记录序列') {
+                const div = document.createElement('div');
+                div.className = 'readonly-input seq-input';
+                div.id = `seq_${id}`;
+                div.textContent = tbody.rows.length + 1;
+                td.appendChild(div);
+            } else if (col === '首次记录日期时间') {
+                const div = document.createElement('div');
+                div.className = 'readonly-input';
+                div.id = `first_${id}`;
+                div.textContent = '';
+                td.appendChild(div);
+            } else if (col === '最后一次修改日期时间') {
+                const div = document.createElement('div');
+                div.className = 'readonly-input';
+                div.id = `last_${id}`;
+                div.textContent = '';
+                td.appendChild(div);
+            } else {
+                const div = document.createElement('div');
+                div.className = 'editable-cell';
+                div.contentEditable = true;
+                const colKey = col === '记录内容（在此输入）' ? 'content' :
+                              col === '记录人（手动填）' ? 'person' :
+                              'col_' + col;
+                div.id = `${colKey}_${id}`;
+                div.setAttribute('data-placeholder', col === '记录内容（在此输入）' ? '输入内容自动触发...' :
+                                               col === '记录人（手动填）' ? '填写姓名' :
+                                               `输入${col}...`);
+                div.innerText = '';
+                if (col === '记录内容（在此输入）') {
+                    div.addEventListener('input', function() { onContentChange(id); });
+                } else if (col === '记录人（手动填）') {
+                    div.addEventListener('input', function() { onPersonChange(); });
+                } else {
+                    div.addEventListener('input', function() { autoSave(); });
+                }
+                td.appendChild(div);
+            }
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+        renumber();
+        autoSave();
+        const contentEl = document.getElementById(`content_${id}`);
+        if (contentEl) {
+            contentEl.focus();
+            const range = document.createRange();
+            range.selectNodeContents(contentEl);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+        updateStatus('已新增一行，自动保存');
+        applyFilter(currentFilter);
+    }
+
+    // ============ 增加一列 ============
+    function addColumn() {
+        const currentCols = getCurrentColumns();
+        const validCols = currentCols.filter(c => c !== '操作');
+        if (validCols.length === 0) {
+            alert('没有可用的列名。');
+            return;
+        }
+
+        const colName = prompt('请输入新列的名称：');
+        if (!colName || colName.trim() === '') return;
+        const newCol = colName.trim();
+        if (currentCols.includes(newCol)) {
+            alert('列名已存在，请使用不同的名称。');
+            return;
+        }
+
+        const refCol = prompt('请在以下列后面插入新列（输入列名）：\n' + validCols.join('\n'));
+        if (!refCol) return;
+        const trimmedRef = refCol.trim();
+        if (!currentCols.includes(trimmedRef)) {
+            alert('列名不存在，请重新输入。');
+            return;
+        }
+        const insertIndex = currentCols.indexOf(trimmedRef) + 1;
+
+        const thead = document.getElementById('tableHead');
+        const headerRow = thead.querySelector('tr');
+        const newTh = document.createElement('th');
+        newTh.textContent = newCol;
+        const resizer = document.createElement('span');
+        resizer.className = 'resizer';
+        newTh.appendChild(resizer);
+        if (insertIndex >= headerRow.children.length) {
+            headerRow.appendChild(newTh);
+        } else {
+            headerRow.insertBefore(newTh, headerRow.children[insertIndex]);
+        }
+
+        const tbody = document.getElementById('tableBody');
+        for (let i = 0; i < tbody.rows.length; i++) {
+            const row = tbody.rows[i];
+            const newTd = document.createElement('td');
+            const div = document.createElement('div');
+            div.className = 'editable-cell';
+            div.contentEditable = true;
+            const id = row.dataset.rowId || i;
+            div.id = `col_${newCol}_${id}`;
+            div.setAttribute('data-placeholder', `输入${newCol}...`);
+            div.innerText = '';
+            div.addEventListener('input', function() { autoSave(); });
+            newTd.appendChild(div);
+            if (insertIndex >= row.children.length) {
+                row.appendChild(newTd);
+            } else {
+                row.insertBefore(newTd, row.children[insertIndex]);
+            }
+        }
+
+        autoSave();
+        updateStatus(`已增加列“${newCol}”在“${trimmedRef}”后面，自动保存`);
+        applyFilter(currentFilter);
+        initResize();
+    }
+
+    // ============ 删除列 ============
+    function deleteColumn() {
+        const currentCols = getCurrentColumns();
+        // 不可删除的固定列（保护）
+        const fixedCols = ['记录序列', '首次记录日期时间', '记录内容（在此输入）', '最后一次修改日期时间', '记录人（手动填）', '操作'];
+        const deletable = currentCols.filter(c => !fixedCols.includes(c));
+        if (deletable.length === 0) {
+            alert('没有可删除的自定义列。');
+            return;
+        }
+
+        const colToDelete = prompt('请输入要删除的列名（只能删除自定义列）：\n' + deletable.join('\n'));
+        if (!colToDelete) return;
+        const trimmed = colToDelete.trim();
+        if (!deletable.includes(trimmed)) {
+            alert('列名不存在或不可删除，请重新输入。');
+            return;
+        }
+
+        if (!confirm(`确定要删除列“${trimmed}”及其所有数据吗？`)) return;
+
+        // 找到列索引
+        const colIndex = currentCols.indexOf(trimmed);
+
+        // 删除表头
+        const thead = document.getElementById('tableHead');
+        const headerRow = thead.querySelector('tr');
+        const thToRemove = headerRow.children[colIndex];
+        if (thToRemove) headerRow.removeChild(thToRemove);
+
+        // 删除每一行的对应单元格
+        const tbody = document.getElementById('tableBody');
+        for (let i = 0; i < tbody.rows.length; i++) {
+            const row = tbody.rows[i];
+            const tdToRemove = row.children[colIndex];
+            if (tdToRemove) row.removeChild(tdToRemove);
+        }
+
+        autoSave();
+        updateStatus(`已删除列“${trimmed}”，自动保存`);
+        applyFilter(currentFilter);
+        initResize();
+    }
+
+    // ============ 删除行 ============
+    function deleteRow(btn) {
+        const row = btn.closest('tr');
+        if (row && confirm('确定要删除此行吗？')) {
+            row.remove();
+            renumber();
+            autoSave();
+            updateStatus('已删除一行，自动保存');
+            applyFilter(currentFilter);
+        }
+    }
+
+    // ============ 重新编号 ============
+    function renumber() {
+        const tbody = document.getElementById('tableBody');
+        for (let i = 0; i < tbody.rows.length; i++) {
+            const seqDiv = tbody.rows[i].querySelector('.seq-input');
+            if (seqDiv) {
+                seqDiv.textContent = i + 1;
+            }
+        }
+    }
+
+    // ============ 内容变更处理 ============
+    function onContentChange(id) {
+        const content = document.getElementById(`content_${id}`);
+        const first = document.getElementById(`first_${id}`);
+        const last = document.getElementById(`last_${id}`);
+        const val = content ? content.innerText.trim() : '';
+        if (val !== '') {
+            const now = new Date();
+            const timestamp = formatTimestamp(now);
+            if (first && first.innerText === '') {
+                first.innerText = timestamp;
+            }
+            if (last) {
+                last.innerText = timestamp;
+            }
+            const seqDiv = document.getElementById(`seq_${id}`);
+            if (seqDiv && seqDiv.innerText === '') {
+                renumber();
+            }
+        }
+        autoSave();
+        applyFilter(currentFilter);
+    }
+
+    function onPersonChange() {
+        autoSave();
+        applyFilter(currentFilter);
+    }
+
+    // ============ 时间格式化 ============
+    function formatTimestamp(date) {
+        return date.getFullYear() + '-' +
+            String(date.getMonth()+1).padStart(2,'0') + '-' +
+            String(date.getDate()).padStart(2,'0') + ' ' +
+            String(date.getHours()).padStart(2,'0') + ':' +
+            String(date.getMinutes()).padStart(2,'0') + ':' +
+            String(date.getSeconds()).padStart(2,'0');
+    }
+
+    // ============ 清空所有 ============
+    function clearAll() {
+        if (confirm('确定要删除所有记录吗？')) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            rowIdCounter = 0;
+            autoSave();
+            updateStatus('已清空所有数据');
+            currentFilter = '';
+            document.getElementById('searchInput').value = '';
+        }
+    }
+
+    // ============ 保存 ============
+    function saveData() {
+        const data = collectData();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        updateStatus('✅ 数据已保存');
+        document.getElementById('saveBtn').disabled = false;
+    }
+
+    function autoSave() {
+        const data = collectData();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        document.getElementById('saveStatus').innerHTML = '💾 数据已自动保存';
+        clearTimeout(window.saveStatusTimer);
+        window.saveStatusTimer = setTimeout(() => {
+            document.getElementById('saveStatus').innerHTML = '✅ 数据已自动保存';
+        }, 1500);
+    }
+
+    function updateStatus(msg) {
+        const statusEl = document.getElementById('saveStatus');
+        statusEl.innerHTML = msg;
+        clearTimeout(window.statusTimer);
+        window.statusTimer = setTimeout(() => {
+            statusEl.innerHTML = '✅ 数据已自动保存';
+        }, 3000);
+    }
+
+    // ============ 搜索 / 筛选 ============
+    function filterRows() {
+        const input = document.getElementById('searchInput');
+        const keyword = input.value.trim();
+        currentFilter = keyword;
+        applyFilter(keyword);
+    }
+
+    function applyFilter(keyword) {
+        const tbody = document.getElementById('tableBody');
+        const rows = tbody.rows;
+        if (keyword === '') {
+            for (let i = 0; i < rows.length; i++) {
+                rows[i].style.display = '';
+            }
+            return;
+        }
+        const lowerKeyword = keyword.toLowerCase();
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const cells = row.querySelectorAll('.editable-cell, .readonly-input');
+            let match = false;
+            cells.forEach(cell => {
+                if ((cell.innerText || '').toLowerCase().includes(lowerKeyword)) {
+                    match = true;
+                }
+            });
+            row.style.display = match ? '' : 'none';
+        }
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        currentFilter = '';
+        applyFilter('');
+        document.getElementById('searchInput').focus();
+    }
+
+    // ============ 页面加载 ============
+    window.onload = function() {
+        init();
+        document.getElementById('searchInput').value = '';
+    };
+</script>
+</body>
+</html>
